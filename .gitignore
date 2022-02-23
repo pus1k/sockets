@@ -1,0 +1,9 @@
+*
+!.gitignore
+!.gitkeep
+!/build
+!/bin
+!/src
+!*.c
+!*.h
+!Makefile
