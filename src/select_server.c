@@ -9,17 +9,29 @@
 #include <unistd.h>
 
 #define MESSAGE_SIZE 10
-#define MAX_USERS 3
+#define MAX_USERS 10
 #define PORT 8080
 
-int check(const int result, const char* const err) { if (result < 0) { perror(err), exit(EXIT_FAILURE); } return result; }
+#define BLUE 34
+#define YELLOW 33
+#define GREEN 32
+#define RED 31
+
+void color_print(int color, char* str) { printf("SERVER:\033[1m\033[%dm%s\033[0m", color, str); }
+
+int check(int result, char* err)
+{
+	if (result < 0) { color_print(RED, err), perror(""), exit(EXIT_FAILURE); }
+	return result;
+}
 
 int main(void)
 {
 	int client_socket, server_socket = socket(AF_INET, SOCK_STREAM, 0);
-	check(server_socket, "SOCKET");
+	check(server_socket, " SOCKET");
 
 	struct sockaddr_in server_address, client_address, arr_address[MAX_USERS];
+	socklen_t addr_size = sizeof(client_address);
 	memset(&server_address, 0, sizeof(server_address));
 	memset(&client_address, 0, sizeof(client_address));
 
@@ -27,40 +39,43 @@ int main(void)
 	server_address.sin_addr.s_addr = INADDR_ANY;
 	server_address.sin_port = htons(PORT);
 
-	check(bind(server_socket, (const struct sockaddr*)&server_address, sizeof(server_address)), "BIND");
+	check(bind(server_socket, (const struct sockaddr*)&server_address, sizeof(server_address)), " BIND");
 	listen(server_socket, MAX_USERS);
 
-	fd_set current, temp;
-	FD_ZERO(&current);
-	FD_ZERO(&temp);
-	FD_SET(server_socket, &current);
-	FD_SET(server_socket, &temp);
+	fd_set talker, fdlist;
+	FD_ZERO(&fdlist);
+	FD_SET(server_socket, &fdlist);
 
-	char message[MESSAGE_SIZE];
-	socklen_t addr_size = sizeof(client_address);
-	printf("SERVER: READY\n");
-	for (;;)
+	color_print(GREEN, " READY\n");
+	for (char message[MESSAGE_SIZE], tmp[MESSAGE_SIZE];;)
 	{
-		check(select(FD_SETSIZE, &current, NULL, NULL, NULL), "SELECT");
-		client_socket = check(accept(server_socket, (struct sockaddr*)(&client_address), &addr_size), "ACCEPT");
-		memcpy(&arr_address[client_socket], &client_address, sizeof(client_address));
-		FD_SET(client_socket, &temp);
+		memcpy(&talker, &fdlist, sizeof(fdlist));
+		check(select(FD_SETSIZE, &talker, NULL, NULL, NULL), " SELECT");
+		if (FD_ISSET(server_socket, &talker))
+		{
+			client_socket = check(accept(server_socket, (struct sockaddr*)(&client_address), &addr_size), " ACCEPT");
+			memcpy(&arr_address[client_socket], &client_address, sizeof(client_address));
+			FD_SET(client_socket, &fdlist);
+			color_print(YELLOW, " CONNECT "), printf("(%d)\n", ntohs(client_address.sin_port));
+		}
+
 		for (int fd = 0; fd < FD_SETSIZE; fd++)
 		{
-			if (FD_ISSET(fd, &current))
+			if (FD_ISSET(fd, &talker) && fd != server_socket)
 			{
-				if (check(recv(fd, message, MESSAGE_SIZE, 0), "RECEIVE") == 0)
+				if (check(recv(fd, message, MESSAGE_SIZE, 0), " RECEIVE") == 0)
 				{
+					FD_CLR(fd, &fdlist);
+					color_print(YELLOW, " DISCONNECT "), printf("(%d)\n", ntohs(arr_address[fd].sin_port));
+					memset(&arr_address[fd], 0, sizeof(arr_address[0]));
 					close(fd);
-					FD_CLR(fd, &temp);
-					memset(&arr_address[fd], 0, sizeof(arr_address[fd]));
 				}
 				else
 				{
-					printf("SERVER: (%d) %s\n", ntohs(arr_address[fd].sin_port), message);
+					sprintf(tmp, " [%d] ", ntohs(arr_address[fd].sin_port));
+					color_print(BLUE, tmp), printf("%s\n", message);
 				}
 			}
 		}
-		memcpy(&current, &temp, sizeof(current));
 	}
 }

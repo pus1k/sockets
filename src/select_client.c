@@ -38,7 +38,6 @@ int main(int argc, char* argv[])
 		{
 			sleep(n);
 			check(send(client_socket, argv[1], strlen(argv[1]), 0), "SEND");
-			printf("CLIENT:SEND\033[1m\033[32m SUCCESS\033[0m\n");
 		}
 	}
 	else
