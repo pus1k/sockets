@@ -6,7 +6,7 @@ OBJECTS:=$(addprefix obj/,$(notdir $(SOURCE:%.c=%.o)))
 TARGETS:=$(addprefix bin/,$(notdir $(SOURCE:%.c=%)))
 HIDE = @
 
-all: $(TARGETS)
+all: bin obj $(TARGETS)
 	@echo Build Complete!
 
 $(TARGETS):$(OBJECTS)
@@ -15,9 +15,14 @@ $(TARGETS):$(OBJECTS)
 $(OBJECTS):$(SOURCE)
 	$(HIDE)$(CC) $(CFLAGS) -c $(shell find $(SOURCEDIR) -name $(notdir $(@:%.o=%.c))) -o $@ $(LDFLAGS)
 
+bin:
+	$(HIDE)mkdir -p bin
+
+obj:
+	$(HIDE)mkdir -p obj
+
 clean:
-	rm -rf obj/* bin/* data.txt
-	reset
+	rm -rf obj bin data.txt
 
 rebuild: clean all
 

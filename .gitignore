@@ -1,9 +1,9 @@
-*
 !.gitignore
 !.gitkeep
-!/obj
-!/bin
+obj
+bin
 !/src
 !*.c
 !*.h
+*.txt
 !Makefile
