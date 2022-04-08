@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Werror -Wpedantic -Wextra
-LDFLAGS=-lpthread
+LDFLAGS=-lpthread -lncurses
 SOURCE:=$(shell find $(SOURCEDIR) -name '*.c')
 OBJECTS:=$(addprefix obj/,$(notdir $(SOURCE:%.c=%.o)))
 TARGETS:=$(addprefix bin/,$(notdir $(SOURCE:%.c=%)))
@@ -22,7 +22,7 @@ obj:
 	$(HIDE)mkdir -p obj
 
 clean:
-	rm -rf obj bin data.txt
+	rm -rf obj bin exe
 
 rebuild: clean all
 
