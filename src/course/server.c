@@ -6,20 +6,24 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <stdbool.h>
-
-// SOLUT THE PROBLEM WITH SHARED MEMORY:
-// PTHREAD OR MEM LOL KEK
-
+#include <sys/mman.h>
+#include <pthread.h>
 
 #define MESSAGE_SIZE 256
 #define PORT 8080
 
-int size = 0, capacity = 50;
+static pthread_mutex_t user_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 struct User {
     struct sockaddr_in m_address;
     char m_name[30];
-} *user_list;
+};
+
+struct ServerData {
+    size_t size, capacity;
+    struct User *user_list;
+} *data;
 
 int check(int result, char* msg)
 {
@@ -35,16 +39,21 @@ void rip() { while (waitpid(-1, NULL, WNOHANG) > 0); }
 
 void add_user(struct sockaddr_in client_address, char* message)
 {
-	if (size == capacity) {
-		capacity *= 2;
-		user_list = realloc(user_list, sizeof(*user_list) * capacity);
+    pthread_mutex_lock(&user_mutex);
+	
+    if (data->size == data->capacity) {
+		data->capacity *= 2;
+		data->user_list = realloc(data->user_list, sizeof(*data->user_list) * data->capacity);
 	}
     message[strlen(message) - 1] = '\0';
 	
-    strcpy(user_list[size].m_name, message);
-    memcpy(&user_list[size].m_address, &client_address, sizeof(client_address));
-    if (ntohs(client_address.sin_port) == ntohs(user_list[size].m_address.sin_port))
-        printf("SERVER:NEW USER %s %d\n", user_list[size].m_name, ntohs(user_list[size].m_address.sin_port)), size++;
+    strcpy(data->user_list[data->size].m_name, message);
+    memcpy(&data->user_list[data->size].m_address, &client_address, sizeof(client_address)), data->size++;
+    
+    pthread_mutex_unlock(&user_mutex);
+    
+    if (ntohs(client_address.sin_port) == ntohs(data->user_list[data->size - 1].m_address.sin_port))
+        printf("SERVER:NEW USER %s %d\n", data->user_list[data->size - 1].m_name, ntohs(data->user_list[data->size - 1].m_address.sin_port));
 }
 void work(int socket, struct sockaddr_in client_address, char* message)
 {
@@ -52,18 +61,23 @@ void work(int socket, struct sockaddr_in client_address, char* message)
     if (num == 27) {
         add_user(client_address, message + 2);
     } else if (num == 54) {
-        printf("%d\n", size);
-        for (int i = 0; i < size; i++) {
-            sendto(socket, message + 1, strlen(message), MSG_WAITALL, (struct sockaddr*)&user_list[i].m_address, sizeof(user_list[i].m_address));
+        printf("%ld\n", data->size);
+        for (size_t i = 0; i < data->size; i++) {
+            sendto(socket, message + 1, strlen(message), MSG_WAITALL, (struct sockaddr*)&data->user_list[i].m_address, sizeof(data->user_list[i].m_address));
         }
     } else if (num == 81) {
         // del user
     }
     exit(EXIT_SUCCESS);
 }
+void* create_shared_memory(size_t size) {
+    return mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+}
 int main(void)
 {
-	if ((user_list = malloc(sizeof(*user_list) * capacity)) == NULL) { exit(EXIT_FAILURE); }
+	if ((data = create_shared_memory(sizeof(*data))) == NULL) { exit(EXIT_FAILURE); }
+    data->size = 0, data->capacity = 50;
+    if ((data->user_list = create_shared_memory(sizeof(*data->user_list) * data->capacity)) == NULL) { exit(EXIT_FAILURE); }
 
     int server_socket = check(socket(AF_INET, SOCK_DGRAM, 0), "SOCKET");
 
@@ -77,15 +91,9 @@ int main(void)
 
     signal(SIGCHLD, rip);
 
-    while (true) {
+    for(char message[MESSAGE_SIZE]; true; memset(&message, 0, MESSAGE_SIZE), memset(&client_address, 0, sizeof(client_address))) {
         socklen_t addr_len = sizeof(client_address);
-        char message[MESSAGE_SIZE];
-
-        memset(&message, 0, MESSAGE_SIZE);
-        memset(&client_address, 0, sizeof(client_address));
-
         recvfrom(server_socket, message, MESSAGE_SIZE, 0, (struct sockaddr*)&client_address, &addr_len);
-
         if (fork() == 0) { work(server_socket, client_address, message); }
     }
     return 0;
