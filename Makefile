@@ -22,7 +22,7 @@ obj:
 	$(HIDE)mkdir -p obj
 
 clean:
-	rm -rf obj bin exe
+	rm -rf obj bin chat.txt
 
 rebuild: clean all
 
