@@ -42,7 +42,6 @@ int check(int result, char* msg)
     printf("SERVER:\033[1m\033[32m%s\033[0m\n", msg);
     return result;
 }
-
 void rip() { while (waitpid(-1, NULL, WNOHANG) > 0); } // Use for clean zombie
 
 void* create_shared_memory(size_t size) { return mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0); }
@@ -50,7 +49,6 @@ void* create_shared_memory(size_t size) { return mmap(NULL, size, PROT_READ | PR
 void add_user(struct sockaddr_in client_address, char* message, int socket)
 {
     pthread_mutex_lock(&user_mutex);
-	
     if (data->size == data->capacity) {
         munmap(data->user_list, sizeof(*data->user_list) * data->capacity);
 		data->capacity *= 2;
@@ -103,7 +101,7 @@ void delete_user(char* message)
 
     if (data->size == i) printf("UNKNOWN MEMBER %s\n", message), exit(EXIT_FAILURE);
 
-    printf("SERVER:DISCONNECT %s\n", data->user_list[i].m_name);
+    printf("SERVER:\033[1m\033[32mDISCONNECT\033[0m %s\n", data->user_list[i].m_name);
     
     pthread_mutex_lock(&user_mutex);
     
@@ -146,7 +144,20 @@ int main(int argc, char* argv[])
     if (argc == 2) {
         inet_aton(argv[1], &server_address.sin_addr);
     } else {
-        inet_aton("192.168.0.5", &server_address.sin_addr);
+        system("ip -4 a | grep global | grep -o '[0-9]\\+' >> info.txt");
+        FILE* fp = fopen("info.txt", "r");
+        char ip_string[16];
+        char line[5];
+        memset(&ip_string, 0, sizeof(ip_string));
+        for (int i = 0; i < 4; i++) {
+            fgets(line, sizeof(line), fp);
+            line[strlen(line) - 1] = '.';
+            strcpy(ip_string + strlen(ip_string), line);
+        }
+        ip_string[strlen(ip_string) - 1] = '\0';
+        system("rm info.txt");
+        inet_aton(ip_string, &server_address.sin_addr);
+        fclose(fp);
     }
     check(bind(server_socket, (const struct sockaddr*)&server_address, sizeof(server_address)), "BIND");
     
