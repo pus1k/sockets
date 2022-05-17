@@ -9,7 +9,7 @@
 
 #define SEND_M(a) sendto(data.socket, a, strlen(a), MSG_WAITALL, (struct sockaddr*)&data.saddr, sizeof(data.saddr))
 #define MESSAGE_SIZE 256
-#define LOGIN_SIZE 30
+#define LOGIN_SIZE 20
 #define PORT 8080
 
 struct client_app_data {
@@ -169,15 +169,16 @@ void add_new_msg_to_chat()
 
 void login()
 {
-
-    WINDOW* box_win = newwin(3, 36, data.ws.ws_row / 2 - 1, data.ws.ws_col / 2 - 15);
-    WINDOW* login_win = newwin(1, 34, data.ws.ws_row / 2, data.ws.ws_col / 2 - 14);
-    box(box_win, 0, 0);
-    wrefresh(box_win);
-    mvwprintw(login_win, 0, 1, "LOGIN: ");
-    wrefresh(login_win);
-    wgetstr(login_win, data.login);
-    delwin(login_win);
+    do {
+        WINDOW* box_win = newwin(3, 36, data.ws.ws_row / 2 - 1, data.ws.ws_col / 2 - 15);
+        WINDOW* login_win = newwin(1, 34, data.ws.ws_row / 2, data.ws.ws_col / 2 - 14);
+        box(box_win, 0, 0);
+        wrefresh(box_win);
+        mvwprintw(login_win, 0, 1, "LOGIN: ");
+        wrefresh(login_win);
+        wgetstr(login_win, data.login);
+        delwin(login_win);
+    } while (strlen(data.login) < 4 || strlen(data.login) > 20);
     send_message(NULL, 27);
     data.offset = strlen(data.login) + 3;
     data.x = data.offset;
